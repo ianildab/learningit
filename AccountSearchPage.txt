@@ -1,0 +1,380 @@
+<apex:page StandardController="Account" id="page" cache="false" extensions="TCLAccountSearchController" sidebar="false" showHeader="true" tabStyle="Account_Search__tab">
+ 
+   
+    <apex:pageMessages rendered="true"/>
+    
+    <apex:sectionHeader title="Account Search"/>
+    
+    <apex:form id="form">    
+        
+      <!--  <apex:actionFunction name="doSearchAF" action="{!doSearch}" reRender="input,searchResults,accTable,legalTable,searchOption"/>
+        -->
+        <!--<apex:selectRadio value="{!selectedObject}" label="Search ?" onClick="boolFunction(this);" disabled="{!disableRadio}" id="searchOption" style="font-weight:bold; font-style:normal; font-family:verdana">-->
+        
+        <apex:selectRadio value="{!selectedObject}" label="Search ?" onClick="boolFunction(this);this.form.reset();" id="searchOption" style="font-weight:bold; font-style:normal; font-family:verdana">
+            <apex:selectOption itemValue="Account" itemLabel="Account" id="accRadio"/>
+            <apex:selectOption itemValue="LegalEntity" itemLabel="Legal Entity" id="legalRadio"/>
+            <apex:actionSupport event="onchange" reRender="searchResults" action="{!switchRadio}"/>
+        </apex:selectRadio>
+        <br/>
+             
+        <apex:PageBlock title="Search Criteria" mode="edit" id="input" >        
+            <div id="accSpan" style = "display:block"> 
+            <apex:pageBlockSection collapsible="true" id="AccDetail" >
+                <apex:inputText value="{!accName}" required="false" id="accName" label="Account Name" title="Please enter 2 or more characters to search"/>
+                <apex:inputText value="{!accOwner}" label="Account Owner" id="accountOwner"/>
+               <!-- <apex:selectList value="{!accCusType}" size="1" label="Customer Type">
+                   <apex:selectOptions value="{!accCustTypeList}"/>
+                </apex:selectList>-->
+                <apex:selectList value="{!accIndustry}" size="1" label="Industry" id="industryAccount">
+                   <apex:selectOptions value="{!accIndustryList}"/>
+                </apex:selectList>  
+                
+                    <apex:selectList value="{!accTML}"   label="TML?"  multiselect="false" size="1" id="tmlAccount">
+                <apex:selectOption itemValue="--None--" itemLabel="--None--"/>
+               <!-- <apex:selectOption itemValue="true" itemLabel="Yes"/>
+                <apex:selectOption itemValue="false" itemLabel="No"/> -->
+                
+                <apex:selectOption itemValue="true" itemLabel="TRUE"/>
+                <apex:selectOption itemValue="false" itemLabel="FALSE"/>
+        
+            </apex:selectList>    
+         
+                
+            </apex:pageBlockSection>            
+            
+            </div>
+            
+            <div id="legalSpan" style = "display:none">
+            <apex:pageBlockSection collapsible="true" id="LegalDetail" > 
+                <apex:inputText value="{!legalName}" id="legalName" required="false" label="Legal Entity Name" title="Please enter 2 or more characters to search"/>
+                
+            <!--  <apex:selectList value="{!legalCusType}" size="1" label="Customer Type">
+                   <apex:selectOptions value="{!legalCustTypeList}"/>
+                </apex:selectList>-->
+                <apex:selectList value="{!legalIndustry}" size="1" label="Industry" id="industryLegal">
+                   <apex:selectOptions value="{!legalIndustryList}"/>
+                </apex:selectList>    
+            </apex:pageBlockSection>       
+            </div>
+            
+            <apex:pageBlockButtons location="bottom" style="position:relative;left:100px;top:0px"  >        
+                    <apex:commandButton value="Search"  action="{!doSearch}" reRender="accTable,querystring,legalTable,searchResults,searchOption" status="status" />                    
+                    <apex:commandButton value="Reset"   action="{!doReset}" onclick="this.form.reset();" reRender="input,searchResults,accTable,legalTable,searchOption" status="resetStatus" />
+            </apex:pageBlockButtons>
+            
+            <apex:actionStatus id="resetStatus" onstart="$('#myrecordsection').hide('fast')" >                             
+                <apex:facet name="start">
+                    <apex:image style="position:fixed;left:500px;top:220px" url="/img/loading32.gif"/>
+                </apex:facet> 
+           </apex:actionStatus>           
+           
+            
+       </apex:PageBlock>
+            
+       <apex:PageBlock title="Search Result" id="searchResults">
+            
+            <apex:pageBlockSection columns="1">
+                <apex:pageMessages id="errorMessage"/>
+            </apex:pageBlockSection> 
+            
+            <Div id="myRecordDiv">
+            
+            <apex:actionStatus id="status" onstart="$('#myrecordsection').hide('fast')" onstop="$('#myrecordsection').show();window.scrollTo(0,0);">                
+                               
+                <apex:facet name="start">
+                    <apex:image style="position:fixed;left:500px;top:400px" url="/img/loading32.gif"/>
+                </apex:facet> 
+                             
+                <apex:facet name="stop"> 
+                    <apex:pageBlockSection columns="1" id="myrecordsection">
+                        <apex:pageBlockTable value="{!accList}" var="ac" id="accTable" rendered="{!accList.size > 0}" >
+                            <apex:column > 
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Account Name" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Name" assignTo="{!sortField}"/>
+                                    </apex:commandLink>                    
+                                </apex:facet>
+                            <apex:outputfield value="{!ac.name}"/>
+                            </apex:column>
+                                                        
+                            <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Industry" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account.Industry" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!ac.Industry}"/>
+                            </apex:column>
+                            
+                           <!-- <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Customer Type" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account.Customer_Type__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!ac.Customer_Type__c}"/>
+                            </apex:column>-->
+                            
+                            <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Account Owner" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account.OwnerId" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!ac.OwnerId}"/>
+                            </apex:column>
+                            
+                            <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Owner Region" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account.Owner.Region__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!ac.Owner.Region__c}"/>
+                            </apex:column>
+                            
+                            <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Owner Sales Org" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account.Owner.Sales_Org__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!ac.Owner.Sales_Org__c}"/>
+                            </apex:column>
+                            
+                            <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="HQ Country" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account.HQ_Country__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!ac.HQ_Country__c}"/>
+                            </apex:column>
+                            
+                            <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="TML?" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account.TML_c__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputtext value="{!IF(ac.TML_c__c,'TRUE','FALSE')}"/>
+                            
+                            
+                            
+                            </apex:column>
+                            
+                             <!--<apex:column This Code is commented as a part of SFDC Req-000563 >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="HQ City" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account.HQ_City__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!ac.HQ_City__c}"/>
+                            </apex:column>--->
+                            <apex:column ><!--Code added as a part of SFDC Req-000563-->
+                                <apex:facet name="header">
+                                    <apex:commandLink value="TML Regions" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account.TML_Regions__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!ac.TML_Regions__c}"/>
+                            </apex:column>
+                            
+                            <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Record Type" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account.RecordType.Name" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!ac.RecordType.Name}"/>
+                            </apex:column>
+                            
+                              <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Count Of Legal Entity" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account.Number_of_Legal_Entities__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!ac.Number_of_Legal_Entities__c}"/>
+                            </apex:column>
+                            
+                             <apex:column headerValue="Open Opportunities">
+                                <apex:outputText rendered="{!ac.No_of_Opportunities_in_Funnel__c >= 1}" value="Yes" />
+                                <apex:outputText rendered="{!ac.No_of_Opportunities_in_Funnel__c <= 0}" value="No"/>
+                            </apex:column>
+                            
+                             <apex:column headerValue="Last Activity Date">
+                                <apex:outputText rendered="{!ac.Last_Activity_Date_on_Account__c == null}" value="No Activity" />
+                                <apex:outputText rendered="{!ac.Last_Activity_Date_on_Account__c != null}" value="{!ac.Last_Activity_Date_on_Account__c}"/>
+                            </apex:column>
+                            
+                            <!--  <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Last Activity Date" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account.Last_Activity_Date_on_Account__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!ac.Last_Activity_Date_on_Account__c}"/>
+                            </apex:column> -->
+                            
+                       
+                            
+                          <apex:column headerValue="Account Team" >
+                               <apex:commandLink value="View Account Team"  action="{!viewAccountTeam}" target="_blank">
+                                    <apex:param name="accountId" value="{!ac.Id}" assignTo="{!accountId}"/>
+                                </apex:commandLink>
+                           </apex:column>
+                            
+                        </apex:pageBlockTable>
+                                                
+                        <apex:pageBlockTable value="{!legalEntityList}" var="le" id="legalTable" rendered="{!legalEntityList.size > 0}">
+                            <apex:column > 
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Account Name" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account__r.name" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                                <apex:outputfield value="{!le.Account__r.name}"/>
+                            </apex:column>
+                            
+                            <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Industry" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="le.Industry__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!le.Industry__c}"/>
+                            </apex:column>
+                            
+                           <!-- <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Customer Type" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="le.Industry_Sub_Type__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!le.Industry_Sub_Type__c}"/>
+                            </apex:column>-->
+                            
+                            <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Account Owner" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Account__r.OwnerId" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!le.Account__r.OwnerId}"/>
+                            </apex:column>
+                            
+                            <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Legal Entity Name" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Name" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!le.Name}"/>
+                            </apex:column>
+                            
+                              <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Legal Entity Owner" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="le.Legal_Entity_Owner__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!le.Legal_Entity_Owner__c}"/>
+                            </apex:column>
+                            
+                            <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Registered Country" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="Registered_Address_Country__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!le.Registered_Address_Country__c}"/>
+                            </apex:column>
+                            
+                            <apex:column >
+                                <apex:facet name="header">
+                                    <apex:commandLink value="Registered City" action="{!toggleSort}" rerender="accTable,querystring,legalTable,searchResults" status="status">
+                                        <apex:param name="sortField" value="le.Registered_Address_City__c" assignTo="{!sortField}"/>
+                                    </apex:commandLink>
+                                </apex:facet>
+                            <apex:outputfield value="{!le.Registered_Address_City__c}"/>
+                            </apex:column> 
+                            
+                            
+                        </apex:pageBlockTable>
+                        </apex:pageBlockSection>
+                       
+                  </apex:facet> 
+                
+            </apex:actionStatus>
+            
+            
+                <apex:outputPanel layout="block" id="pagination" rendered="{!accList.size > 0 || legalEntityList.size > 0}" style="position:relative;color:black; font-weight:bold; font-size:100%;width:97%">
+                
+                    <apex:outputText style="position:relative;left:3%" value="Page :{!PageNumber} of {!NumberOfPage}"/>        
+                    <apex:commandlink style="position:relative;left:31%" action="{!First}"  Value="First" rerender="myrecordsection,pagination" status="status"/>
+                    <apex:outputtext style="position:relative;left:32%;color:grey" value="Previous" rendered="{!NOT(hasPrevious)}"/>
+                    <apex:commandLink style="position:relative;left:32%" action="{!Previous}" Value="Previous" rendered="{!hasPrevious}" rerender="pagination,myrecordsection" status="status"/>
+                    <apex:outputtext style="position:relative;left:33%;color:grey" value="Next" rendered="{!NOT(hasNext)}"/>              
+                    <apex:commandLink style="position:relative;left:33%" action="{!Next}" Value="Next" rendered="{!hasNext}" rerender="pagination,myrecordsection" status="status"/>
+                                
+                    <apex:commandLink style="position:relative;left:34%" action="{!Last}"  Value="Last"  rerender="myrecordsection,pagination" status="status"/>           
+                
+                    
+                    <apex:outputText style="position:relative;margin-left:65%;float:right" value="Total Records : {!getResultSize}"/>
+                    
+               </apex:outputPanel>        
+              </DIV>
+          </apex:pageBlock> 
+    
+    <apex:outputLabel title="Query" value="{!query}" id="querystring" rendered="false"/>
+    </apex:form> 
+
+<script type='text/javascript'> 
+    
+    function noenter(ev) 
+    {  
+        if (window.event && window.event.keyCode == 13 || ev.which == 13) {  
+            doSearchAF();  
+            return false;  
+
+          } 
+        else 
+        {  
+           return true;  
+        }  
+     }  
+    
+    
+     function acctPlanningTeam(str)
+     {   
+     return false;      
+     } 
+    
+    
+    function boolFunction(variable)
+     {
+        var bool = variable.value;
+        if(bool == 'Account' )
+        {   
+            document.getElementById('page:form:input:AccDetail:accName').value = '';   
+            document.getElementById('page:form:input:AccDetail:accountOwner').value = ''; 
+            document.getElementById('page:form:input:AccDetail:industryAccount').value = '';
+            document.getElementById('myRecordDiv').style.display = 'none';
+            document.getElementById('accSpan').style.display = 'block';
+            document.getElementById('legalSpan').style.display = 'none';
+            document.getElementById('searchOption').value = bool;
+        }
+        else if(bool == 'LegalEntity')
+        {   
+            document.getElementById('page:form:input:LegalDetail:legalName').value = '';
+            document.getElementById('page:form:input:LegalDetail:industryLegal').value = '';            
+            document.getElementById('myRecordDiv').style.display = 'none';     
+            document.getElementById('accSpan').style.display = 'none';
+            document.getElementById('legalSpan').style.display = 'block';  
+            document.getElementById('searchOption').value = bool;
+        }
+     }
+  </script>    
+</apex:page>
