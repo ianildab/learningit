@@ -1,0 +1,93 @@
+C:\Users\Udai kumar Singh>cd Desktop
+
+C:\Users\Udai kumar Singh\Desktop>cd Shruti_Office_Work
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work>cd Coca_Cola_Project
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>git branc
+h
+* master
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>git init
+Reinitialized existing Git repository in C:/Users/Udai kumar Singh/Desktop/Shrut
+i_Office_Work/Coca_Cola_Project/.git/
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>git add
+Nothing specified, nothing added.
+Maybe you wanted to say 'git add .'?
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>git statu
+s
+On branch master
+nothing to commit, working directory clean
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>git commi
+t -m "first commit"
+On branch master
+nothing to commit, working directory clean
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>git commi
+t -m "first commit"
+On branch master
+Changes not staged for commit:
+        deleted:    AccountSearchPage.txt
+
+Untracked files:
+        CircuitServiceRecordController.txt
+
+no changes added to commit
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>git add.
+git: 'add.' is not a git command. See 'git --help'.
+
+Did you mean this?
+        add
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>git add .
+
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>git commi
+t
+Aborting commit due to empty commit message.
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>git commi
+t
+[master f6ffa8f] deleted file accountsearchpage
+ 2 files changed, 864 insertions(+), 380 deletions(-)
+ delete mode 100644 AccountSearchPage.txt
+ create mode 100644 CircuitServiceRecordController.txt
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>git log
+commit f6ffa8f40ad2e101e585856a9fdcb9d341ebaa99
+Author: Shruti Singh <shruti16singh@gmail.com>
+Date:   Fri Dec 11 00:26:31 2015 +0530
+
+    deleted file accountsearchpage
+
+commit 360fe09ddc8105058d319dce48454b6a999c685e
+Author: Shruti Singh <shruti16singh@gmail.com>
+Date:   Fri Dec 11 00:01:03 2015 +0530
+
+    Code commented by shruti singh
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>git remot
+e add origin https://github.com/shruti16singh/Coca-Cola.git
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>git push
+-u origin master
+Username for 'https://github.com': Shruti16Singh
+Password for 'https://Shruti16Singh@github.com':
+Counting objects: 6, done.
+Delta compression using up to 4 threads.
+Compressing objects: 100% (5/5), done.
+Writing objects: 100% (6/6), 10.53 KiB | 0 bytes/s, done.
+Total 6 (delta 0), reused 0 (delta 0)
+To https://github.com/shruti16singh/Coca-Cola.git
+ * [new branch]      master -> master
+Branch master set up to track remote branch master from origin.
+
+C:\Users\Udai kumar Singh\Desktop\Shruti_Office_Work\Coca_Cola_Project>

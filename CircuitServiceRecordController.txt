@@ -1,0 +1,864 @@
+//*************************************************************************************************************************************
+// Name             : CircuitServiceRecordController.cls
+// Description      : Class to Read CSV File & Bulk Upload Circuit Service Id's & display List of Missing Circuit Service Id 
+//                    and display Service records w.r.t Circuit Service Id Uploaded & Create PRCR Opportunity for the available 
+//                    Service Record
+// Created By       : Shruti Singh, TCS
+// Created Date     : 16 October 2014
+// *************************************************************************************************************************************
+
+
+
+public class CircuitServiceRecordController 
+{
+  
+    String var; //to capture input values
+   //   public Boolean result = false;
+    string[] separatedvalue ;
+    public Id OpportunityId;//to capture the Opportunity Id
+    public string cktServiceid,tabId; // to capture ckt service Id
+    public String OpportunityStage{get;set;} // to capture the Opportunity Record Type
+    public String taskRecordType{get;set;} // to capture the task Record Type
+    public String taskStatus{get;set;} // to capture the task Status
+    public String TaskPriority{get;set;} // to capture the task priority taskSubject 
+    public String taskSubject{get;set;} // to capture the task Subject 
+    public string OpportunityRecordType{get;set;} // to capture the Opportunity stage
+    Public String OpportunityProbabilty{get;set;} // to capture the probabilty of Opportunity
+    public String OpportunityTatabillingEntity {get;set;}
+    public string circuitServiceId{get;set;} // to capture the Circuit Service Id 
+    public String OpptyTataBillingEntity; // to capture the Tata Billing Entity
+    public String OpptyCustomerContractingEntityFId{get;set;}
+    public String AccountName; // to capture the Account Name
+    public String AccountId; // to capture the Account Id
+    public string PRCRcircuitServiceId{get;set;} // to capture the PRCR circuit Service Id
+    public Integer contentfilesize{get;set;}// To capture the size of content file
+    public Integer pageSize{get; set;} //  To Capture Page Size limit
+    public Integer theUploadLimit{get;set;}    // To Capture Upload limit
+    public String commaSepratedList=''; // to separate the ckt Service Ids with comma
+    public String CustomerContractingEntity;
+    public string CustomerContractingEntityName;
+    public Set<String> CktServiceIdList = new Set<String>();  // = new Set<String>();
+    transient public string nameFile{get;set;} // To Capture uploaded file
+    transient public Blob contentFile{get;set;} // To Capture body of the file
+    public Boolean isDisplay{get;set;}  // Flag used in VF Page to control rendering of pageBlock
+    public Boolean isDisplayMode{get;set;} // Flag used in VF Page to control rendering of pageBlock
+    public Boolean isDisplayBrowseButton{set;get;}//Flag used in VF Page to control rendering of Browse/choose file button
+    public Boolean Isdisplayuploadbutton{get;set;} // Flag used in VF Page to control rendering of Upload file button
+    public Boolean IsDisplayTemplateLink{get;set;} // Flag used in VF Page to control rendering of link of template for download
+    public Boolean isDisplayGESButton{set;get;}// Flag used to render GES Download Button
+    public Boolean isDisplayGCSButton{set;get;} // Flag used to render GCS Download Button
+    transient public String[] filelines = new String[]{}; // To Capture the no. of lines in the file
+    transient public String[] separatedvalues = new String[]{}; 
+    transient public List<String> inputvalues = new List<String>(); // To capture data in each row of the excel
+    string[] firstcolumn = new String[]{}; //To Capture the 1st lines in the file
+    Set<String> missingServicerecords = new Set<String>();  // = new String<missingServicerecords>();
+    String[] servcerecords = new List<String>(); // To capture successfully uploaded circuit service ids.
+    List<Service_Record__c> allServiceRecords; //= new List<Service_Record__c> 
+    List<ServiceRecordWrapper> servicerecordlist{get;set;} //// To wrap uploaded circuit service ids.
+    public String fileExtention = '.csv'; // To check the correct file extention
+    public List<Service_Record__c> checkedServicerecords = new List<Service_Record__c>(); // List to capture the selected Service records
+    public Set<Id> OpportunityIdList = new Set<Id>();//List To capture the Opportunity ids of selected Service records
+    public Map<String, list<ServiceRecordWrapper>> mapLEandProduct{get;set;} //to capture LE and Product w.r.t circuit service id.
+    public List<ServiceRecordWrapper> GESList{get;set;} //to capture the list of GES service record  
+    public List<ServiceRecordWrapper> GCSList{get;set;} //to capture the list of GCS service record  
+    public Set<String> serviceRecordsfound  = new Set<String>(); // to capture the service record found
+    Public Set<String> billablecktlist  = new Set<String>(); // to capture the billable service record 
+    public Set<string> nonbillablecktlist = new Set<String>(); // to capture the non billable service record 
+    public List<Service_Record__c> circuitServicerecordsFoundinSFDC{get;set;} // to capture list of service records found in SFDC
+    public Map<String, list<Service_Record__c>> mapCircuitserviceIdandrecord{get;set;} // map of Service record Id & record
+    public List<String> commaseperatedvalue = new List<String>(); //to capture comma separated value 
+    Public Boolean isMessageDisplay{get;set;}// Flag used to display the messgae of task creation
+    public Task createTask; // =  new Task();
+    public PageReference pdf; // PageReference
+    public Blob xlsBlob; //to capture the body of attachment
+    public Id result1; // to capture the attachment id
+    public Id Result{get; set;} // to capture the task id
+    public String selectvalue { get; set;} // to capture the selected value of assignee from dropdown
+    public list<SelectOption> options {get; set;} //to capture the options of assignee from the dropdown to assign the task
+    
+    
+    /******************Constructors****************************/
+    public CircuitServiceRecordController()
+    {
+        isDisplay = true;
+        isDisplayMode = false;
+        Isdisplayuploadbutton = true;
+        isDisplayBrowseButton = false;
+        IsDisplayTemplateLink = true;
+        isDisplayGCSButton = true;
+        isDisplayGESButton = true;
+     
+        try
+        {
+            tabId = ApexPages.currentPage().getParameters().get('sfdc.tabName');  
+            Page_Size_Limit__c PageSizeValue = Page_Size_Limit__c.getValues('Page_Size_of_Service_Records'); // To get the value of Page size 
+            pageSize = integer.valueof(PageSizeValue.Page_Size__c);
+            
+        }
+        catch(Exception e)
+        {
+            ApexPages.Message errormsg = new ApexPages.Message(ApexPages.severity.ERROR,'Error in getting the value of Page size ...!');
+            ApexPages.addMessage(errormsg);
+        }
+    } 
+    
+    // ******************************************************************************
+    // instantiate the StandardSetController from a query locator 
+    // ******************************************************************************
+    public ApexPages.StandardSetController con 
+    {
+        get 
+        {
+            if(con == null)
+            {
+                con = new ApexPages.StandardSetController(Database.getQueryLocator([ SELECT Id,Opportunity__r.Account.Name,Account__r.Name,Contract_Term__c,Total_MRC__c ,Service_Record__c,Service_In_M6_Viznet__c,Customer_Type__c,Opportunity__c,Opportunity__r.StageName,Opportunity_ID__c,
+                                                                                            Legal_Entity__r.Name,Commission_Date__c ,A_End_BSO_BW__c,B_End_BSO_BW__c,Payment_Type__c,
+                                                                                            A_End_BSO__c,B_End_BSO__c,B_End_City__c,B_End_Address__c,Bill_Cycle__c,CurrencyIsoCode,
+                                                                                            ARC__c,Legal_Entity_Name__c,PO_Number__c,Port_Bandwidth__c,Interface__c,B_End_Interface__c,
+                                                                                            Billing_Type__c,A_End_City__c,A_End_Address__c,COPF_Id__c,M6_COPF_ID__c,Sub_service_In_M6_Viznet__c,
+                                                                                            Sub_Service_type_As_per_M6_Viznet__c,Price_Revision_Date__c,Renewal_Due_On__c,Name,Legal_Entity__c,
+                                                                                            Account__c,SAP_Code__c, Contract_Start_Date__c, Ckt_ServiceID__c, Contract_Expiry_Date__c,
+                                                                                            Type_of_Service__c,Service_Status__c,MRC__c,Service_Record__c.Opportunity__r.Opportunity_ID__c , 
+                                                                                            Service_Record__c.Opportunity__r.TATA_Billing_Entity__c, Service_Record__c.Opportunity__r.AccountId,
+                                                                                            Service_Record__c.Opportunity__r.Account__c from Service_Record__c 
+                                                                                            where Ckt_ServiceID__c =: servcerecords and Service_Status__c = 'Open'and
+                                                                                            Billing_Type__c = 'Billable'
+                                                                                            Order By Legal_Entity__r.Name,Type_of_Service__c]));
+                // sets the number of records in each page set
+                if(pageSize!= NULL)
+                {
+                    con.setPageSize(pageSize);
+                }
+                else
+                {
+                    con.setPageSize(100);
+                }
+            }
+            return con;
+        }
+        set;
+    }
+
+    // ******************************************************************************
+    // Name       :   ReadFile
+    // Description:   Method to process the CSV file 
+    // Parameters :   None
+    // Returns    :   Pagereference
+    // ******************************************************************************
+
+
+    public Pagereference ReadFile()
+    {
+        isDisplay = true;
+        isDisplayMode = true;
+        Isdisplayuploadbutton = false;
+        isDisplayBrowseButton = true;
+        IsDisplayTemplateLink = false;
+      
+        if(contentFile!= Null)
+        {
+            if(nameFile.subString(nameFile.length() - 4, nameFile.length()).equals(fileExtention))
+            {        
+                try
+                {
+                    Price_Revision_Contract_Renewal_Limits__c uploadedrecordlimit = Price_Revision_Contract_Renewal_Limits__c.getValues('No_of_Records_Uploaded'); // To get the value of Uploaded records 
+                    theUploadLimit = integer.valueof(uploadedrecordlimit.Upload_Limit__c);
+                    Price_Revision_Contract_Renewal_Limits__c sizeofcontentfile = Price_Revision_Contract_Renewal_Limits__c.getValues('Size_of_Content_File'); // To get the value of content file
+                    contentfilesize = integer.valueof(sizeofcontentfile.Upload_Limit__c);
+                    /*Price_Revision_Contract_Renewal_Limits__c prcrl = [SELECT Upload_Limit__c , Content_File_Size__c FROM Price_Revision_Contract_Renewal_Limits__c];
+                    theUploadLimit = (Integer) prcrl.Upload_Limit__c; */
+                    if(contentFile.size() <= contentfilesize)
+                    {
+                        nameFile=contentFile.toString();
+                        try
+                        {                                          
+                            filelines = nameFile.split('\n');
+                        }
+                        catch(Exception e)
+                        {
+                            System.Debug('Error In Splitting '+e.getMessage());
+                            /*isDisplayMode = false;
+                            ApexPages.Message errormsg = new ApexPages.Message(ApexPages.severity.INFO,'Cannot Upload Circuit Service Ids more than 1000 at a time...!');
+                            ApexPages.addMessage(errormsg);*/
+                        }
+                        firstcolumn = filelines[0].split(',');
+                        if(firstcolumn.size()<=1)
+                        {
+                            if(filelines.size() <= theUploadLimit && filelines != null)
+                            {
+                                if(filelines.size() >1)
+                                { 
+                                    for (Integer i=1;i<filelines.size();i++)
+                                    {  
+                                        inputvalues = filelines[i].split(',');   
+                                        Service_Record__c servicerecords = new Service_Record__c();
+                                        var = inputvalues[0].trim();
+                                        if(var!= Null && var!= '')
+                                        servcerecords.add(var);
+                                    }
+                                }
+                                else
+                                {
+                                    isDisplayMode = false;
+                                    ApexPages.Message errormsg = new ApexPages.Message(ApexPages.severity.INFO,'Cannot Upload Blank File...!');
+                                    ApexPages.addMessage(errormsg);
+                                }
+                            }
+                            else if(filelines.size() >= theUploadLimit)
+                            {
+                                isDisplayMode = false;
+                                ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Error,'You can upload only '+theUploadLimit+' Records. Currently You have uploaded '+filelines.size()+' Records.'));
+                            }
+                        }
+                        else
+                        {
+                            isDisplayMode = false;
+                            //throw Error if user choosen invalid template
+                            ApexPages.Message errormsg = new ApexPages.Message(ApexPages.severity.ERROR,'Invalid template or file while processing your records...!');
+                            ApexPages.addMessage(errormsg);
+                        } 
+                    }
+                    else if(contentFile.size() > contentfilesize)
+                    {
+                        isDisplayMode = false;
+                        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Error,'You can upload only '+theUploadLimit+' Records. Currently You have uploaded '+filelines.size()+' Records.'));
+                    }
+                }
+                catch (Exception e)
+                {
+                    isDisplayMode = false;
+                    //throw Error if user choosen invalid template
+                    ApexPages.Message errormsg = new ApexPages.Message(ApexPages.severity.ERROR,'Please upload correct file......!');
+                    ApexPages.addMessage(errormsg);
+                }
+                    
+            }   
+            else
+            {
+                isDisplayMode = false;
+                ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Error,'Please Upload Only CSV Files.'));
+               
+            }
+            if(servcerecords!= Null && (!servcerecords.IsEmpty()))
+            {
+                allServiceRecords =  [Select Id,Opportunity__r.Account.Name,Account__r.Name,Contract_Term__c,Total_MRC__c ,Customer_Type__c,Service_Record__c,Opportunity__c,Service_In_M6_Viznet__c,Opportunity__r.StageName,Opportunity_ID__c,
+                                             Legal_Entity__r.Name,Commission_Date__c ,A_End_BSO_BW__c,B_End_BSO_BW__c,Payment_Type__c,
+                                             A_End_BSO__c,B_End_BSO__c,B_End_City__c,B_End_Address__c,Bill_Cycle__c,CurrencyIsoCode,
+                                             ARC__c,Legal_Entity_Name__c,PO_Number__c,Port_Bandwidth__c,Interface__c,B_End_Interface__c,
+                                             Billing_Type__c,A_End_City__c,A_End_Address__c,COPF_Id__c,M6_COPF_ID__c,Sub_service_In_M6_Viznet__c,
+                                             Sub_Service_type_As_per_M6_Viznet__c,Price_Revision_Date__c,Renewal_Due_On__c,Name,Legal_Entity__c,
+                                             Account__c,SAP_Code__c, Contract_Start_Date__c, Ckt_ServiceID__c, Contract_Expiry_Date__c,
+                                             Type_of_Service__c,Service_Status__c,MRC__c,Service_Record__c.Opportunity__r.Opportunity_ID__c , Service_Record__c.Opportunity__r.Account__c,
+                                             Service_Record__c.Opportunity__r.TATA_Billing_Entity__c, Service_Record__c.Opportunity__r.AccountId from Service_Record__c where Ckt_ServiceID__c =: servcerecords];
+}
+            missingServicerecords = new Set<String>();
+        }
+        else
+        {
+            isDisplayMode = false;
+            ApexPages.Message errormsg = new ApexPages.Message(ApexPages.severity.ERROR,'Please select a file to upload...!');
+            ApexPages.addMessage(errormsg);
+               
+        } 
+        getmapLEandProduct();
+        getnonbillableServicerecords();
+        if((List<Service_Record__c>)con.getRecords()!= null)
+        for (Service_Record__c servicerecord : (List<Service_Record__c>)con.getRecords()) 
+        {
+            if(servicerecord.Customer_Type__c == 'Enterprise-Direct' || servicerecord.Customer_Type__c == 'Next Gen'|| servicerecord.Customer_Type__c == 'Corporate' || servicerecord.Customer_Type__c == 'Enterprise – Government/PSU' || servicerecord.Customer_Type__c == 'Enterprise - System Integrators' || servicerecord.Customer_Type__c == 'Enterprise - Gold' || servicerecord.Customer_Type__c == 'Enterprise – Silver' || servicerecord.Customer_Type__c == 'Enterprise – Growth Accounts' || servicerecord.Customer_Type__c == 'SMB' || servicerecord.Customer_Type__c == 'Enterprise - MES' )
+            {
+                isDisplayGESButton = false;
+            }
+            else if(servicerecord.Customer_Type__c == 'Mobile' || servicerecord.Customer_Type__c == 'Carriers' || servicerecord.Customer_Type__c == 'Wholesale' || servicerecord.Customer_Type__c == 'GVS')
+            {
+                isDisplayGCSButton = false;     
+            }
+        }
+        return null; 
+    }
+
+    // ******************************************************************************
+    // indicates whether there are more records after the current page set.
+    // ******************************************************************************
+    public Boolean hasNext 
+    {
+        get {
+            return con.getHasNext();
+        }
+        set;
+    }
+    
+    // ******************************************************************************
+    // indicates whether there are more records before the current page set.
+    // ******************************************************************************
+    public Boolean hasPrevious 
+    {
+        get {
+            return con.getHasPrevious();
+        }
+        set;
+    }
+    
+    // ******************************************************************************
+    // returns the page number of the current page set
+    // ******************************************************************************
+    public Integer pageNumber 
+    {
+        get {
+            return con.getPageNumber();
+        }
+        set;
+    }
+    
+    // ******************************************************************************
+    // returns the first page of records
+    // ******************************************************************************
+    public void first() 
+    {
+        con.first();
+        getmapLEandProduct() ;
+    }
+    
+    // ******************************************************************************
+    // returns the last page of records
+    // ******************************************************************************
+    public void last()
+    {
+        con.last();
+        getmapLEandProduct() ;
+    }
+    
+    // ******************************************************************************
+    // returns the previous page of records
+    // ******************************************************************************
+    public void previous() 
+    {
+        con.previous();
+        getmapLEandProduct() ;
+    }
+    
+    // ******************************************************************************
+    // returns the next page of records
+    // ******************************************************************************
+    public void next() 
+    {
+        con.next();
+        getmapLEandProduct() ;
+    }  
+   
+    // ******************************************************************************
+    // Name       :   getnonbillableServicerecords
+    // Description:   Method to return List of Non Billable Service Records
+    // Parameters :   None
+    // Returns    :   List of Service Records
+    // ******************************************************************************
+    
+    public List<Service_Record__c> getnonbillableServicerecords()
+    {
+       if(servcerecords!= Null && (!servcerecords.IsEmpty()))
+        {  
+            billablecktlist.addAll(servcerecords);
+            if(((List<Service_Record__c>)con.getRecords())!= NULL && ((List<Service_Record__c>)con.getRecords()).size()>0)
+            {
+                for(Service_Record__c servicerecordslist : (List<Service_Record__c>)con.getRecords()) 
+                { 
+                    if(servicerecordslist.Ckt_ServiceID__c != null && servicerecordslist.Ckt_ServiceID__c!= '')
+                    nonbillablecktlist.add(servicerecordslist.Ckt_ServiceID__c);
+                    if(nonbillablecktlist!=null && nonbillablecktlist.size()>0)
+                    billablecktlist.removeAll(nonbillablecktlist); 
+                } 
+            }      
+        }
+        if(billablecktlist != Null && billablecktlist.size()>0)
+        circuitServicerecordsFoundinSFDC =[SELECT Id,Account__r.Name,Contract_Term__c,Total_MRC__c ,Service_Record__c,Customer_Type__c,Service_In_M6_Viznet__c,Opportunity__c,Opportunity__r.StageName,Opportunity_ID__c,
+                                                  Legal_Entity__r.Name,Commission_Date__c ,A_End_BSO_BW__c,B_End_BSO_BW__c,Payment_Type__c,Opportunity__r.Account.Name,
+                                                  A_End_BSO__c,B_End_BSO__c,B_End_City__c,B_End_Address__c,Bill_Cycle__c,CurrencyIsoCode,
+                                                  ARC__c,Legal_Entity_Name__c,PO_Number__c,Port_Bandwidth__c,Interface__c,B_End_Interface__c,
+                                                  Billing_Type__c,A_End_City__c,A_End_Address__c,COPF_Id__c,M6_COPF_ID__c,Sub_service_In_M6_Viznet__c,
+                                                  Sub_Service_type_As_per_M6_Viznet__c,Price_Revision_Date__c,Renewal_Due_On__c,Name,Legal_Entity__c,
+                                                  Account__c,SAP_Code__c, Contract_Start_Date__c, Ckt_ServiceID__c, Contract_Expiry_Date__c,Service_Record__c.Opportunity__r.Account__c,
+                                                  Type_of_Service__c,Service_Status__c,MRC__c,Service_Record__c.Opportunity__r.Opportunity_ID__c ,Service_Record__c.Opportunity__r.AccountId
+                                                  from Service_Record__c 
+                                                  where Ckt_ServiceID__c =: billablecktlist 
+                                                  Order By Legal_Entity__r.Name,Type_of_Service__c];
+      
+        if(circuitServicerecordsFoundinSFDC!= Null && circuitServicerecordsFoundinSFDC.size()>0) 
+        {
+            return circuitServicerecordsFoundinSFDC ;
+        }
+        else
+        return null;
+    }
+   
+    // ******************************************************************************
+    // Name       :   getmapLEandProduct
+    // Description:   Method to get the LE & Product w.r.t uploaded Circuit Service ids 
+    // Parameters :   None
+    // Returns    :   void
+    // ******************************************************************************
+    public  void getmapLEandProduct() 
+    {       
+        servicerecordlist = new  List<ServiceRecordWrapper>();
+        for (Service_Record__c servicerecord : (List<Service_Record__c>)con.getRecords()) 
+        {   
+            mapLEandProduct = new Map<String, list<ServiceRecordWrapper>>(); 
+            servicerecordlist.add(new ServiceRecordWrapper(servicerecord));
+            if(servicerecordlist!= null && servicerecordlist.size()>0)
+            {
+                For(ServiceRecordWrapper servicerecordwrap : servicerecordlist)
+                {    
+                    
+                    if(mapLEandProduct.containskey(servicerecordwrap.serRec.Type_of_Service__c + servicerecordwrap.serRec.Legal_Entity_Name__c))
+                    {    
+                        mapLEandProduct.get(servicerecordwrap.serRec.Type_of_Service__c + servicerecordwrap.serRec.Legal_Entity_Name__c).add(servicerecordwrap);                      
+                    }
+                    else
+                    {
+                        mapLEandProduct.put(servicerecordwrap.serRec.Type_of_Service__c + servicerecordwrap.serRec.Legal_Entity_Name__c, new List<ServiceRecordWrapper>{servicerecordwrap});  
+                                                      
+                    }
+                }
+            }
+        }
+        system.debug('---mapLEandProduct-----'+mapLEandProduct);
+    }
+    
+    // ***************************************************************************************
+    // Name       :   getmissingServicerecords
+    // Description:   Method to return Circuit service ids to be displayed on user screen.
+    // Parameters :   None
+    // Returns    :   Set<String>
+    // ***************************************************************************************  
+    public Set<String> getmissingServicerecords()
+    {
+        isDisplay = false;
+        IsDisplayMode = true;
+         isDisplayBrowseButton = true;
+         IsDisplayTemplateLink = false;
+        if(servcerecords!= Null && (!servcerecords.IsEmpty()))
+        {           
+            missingServicerecords.addAll(servcerecords);
+            if(allServiceRecords!= NULL && allServiceRecords.size()>0)
+            {
+                for(Service_Record__c servicerecordsfoundlist : allServiceRecords) 
+                { 
+                    if(servicerecordsfoundlist.Ckt_ServiceID__c != null && servicerecordsfoundlist.Ckt_ServiceID__c!= '')
+                    serviceRecordsfound.add(servicerecordsfoundlist.Ckt_ServiceID__c);
+                    if(serviceRecordsfound!=null && serviceRecordsfound.size()>0)
+                    isDisplay = true;
+                    isDisplayMode = false;
+                    missingServicerecords.removeAll(serviceRecordsfound);    
+                }                   
+            }  
+        }
+        if(missingServicerecords!= NULL && missingServicerecords.size() > 0)
+        {  
+            isDisplay = true;
+            isDisplayMode = true;
+            return missingServicerecords;
+        }
+        else
+        {
+           isDisplayMode = true;
+            return null;                    
+        }
+    }   
+    
+    // ***************************************************************************************************
+    // Name       :   download
+    // Description:   Method to download missing Circuit service id list
+    // Parameters :   None
+    // Returns    :   pageReference
+    // ***************************************************************************************************
+    public pagereference downloadMissingCktserviceIds()
+    {
+        isDisplay = true;
+        isDisplayMode = false;
+        PageReference exdownload = null;
+        exdownload = Page.CircuitServiceRecordDownload;
+        exdownload.setRedirect(false);
+        return exdownload ;
+            
+    }
+    
+    // ***************************************************************************************************
+    // Name       :   download
+    // Description:   Method to download Non Billable Service Records
+    // Parameters :   None
+    // Returns    :   pageReference
+    // ***************************************************************************************************
+    public pagereference downloadNonBillableServiceRecords()
+    {
+        isDisplay = true;
+        isDisplayMode = false;
+        PageReference exdownload = null;
+        exdownload = Page.DownloadNonBillableServiceRecords;
+        exdownload.setRedirect(false);
+        return exdownload ;
+            
+    }
+    
+    // ***************************************************************************************************
+    // Name       :   DownloadAvailable
+    // Description:   Method to download available GES Service records w.r.t Circuit service id list uploaded
+    // Parameters :   None
+    // Returns    :   pageReference
+    // ***************************************************************************************************
+    public PageReference DownloadAvailableGES()
+    {  
+        PageReference exdownload1 = null;
+        isDisplayMode = false;
+        exdownload1 = Page.GESservicerecorddownload;
+        exdownload1.setRedirect(False);
+        return exdownload1 ;
+    }
+    // ***************************************************************************************************
+    // Name       :   DownloadAvailableGCS
+    // Description:   Method to download avialable GCS Service records w.r.t Circuit service id list uploaded
+    // Parameters :   None
+    // Returns    :   pageReference
+    // ***************************************************************************************************
+    public PageReference DownloadAvailableGCS()
+    {
+       PageReference exdownload2 = null;
+       exdownload2 = Page.GCSservicerecorddownload;
+       exdownload2.setRedirect(False);
+       return exdownload2;
+    }
+    
+    // ***************************************************************************************************
+    // Name       :   ServiceRecordWrapper.cls
+    // Description:   Wrapper class that contains binding variables to bind failed Service Record data.
+    // ***************************************************************************************************
+    public class ServiceRecordWrapper
+    {
+        public Boolean checked{ get; set; }
+        public Service_Record__c serRec { get; set;}
+
+        public ServiceRecordWrapper()
+        {
+            serRec = new Service_Record__c();
+            checked = false;
+        }
+        public ServiceRecordWrapper(Service_Record__c s)
+        {
+            serRec = s;
+            checked = false;
+        }
+    }
+
+    // ***************************************************************************************************
+    // Name       :   cancel
+    // Description:   Method to reset
+    // Parameters :   None
+    // Returns    :   pageReference
+    // ***************************************************************************************************
+    public PageReference cancel()
+    {
+        isDisplay = true;
+        isDisplayMode = false;
+        PageReference pageRef = new PageReference('/apex/CircuitServiceRecord?sfdc.tabName=' +tabId );
+        pageRef.setRedirect(true);     
+        return pageRef;               
+    }
+    
+    // ***************************************************************************************
+    // Name       :   CreateOpportunity
+    // Description:   Method to redirect to Opportunity Clone Page for Creation Of Opportunity
+    // Parameters :   None
+    // Returns    :   pageReference
+    // ***************************************************************************************  
+    public Pagereference CreateOpportunity()
+    {
+        if(servicerecordlist!= null && servicerecordlist.size()>0)
+        {
+            for(ServiceRecordWrapper servicerec : servicerecordlist)
+            { 
+                if(servicerec.checked == true || test.isRunningTest())
+                {
+                    checkedServicerecords.add(servicerec.serRec);
+                    if(servicerec.serRec.Opportunity__c!= Null)
+                    OpportunityId = servicerec.serRec.Opportunity__c;
+                    cktServiceid = servicerec.serRec.Ckt_ServiceID__c;
+                    OpptyTataBillingEntity =  servicerec.serRec.Opportunity__r.TATA_Billing_Entity__c;
+                    //AccountName = servicerec.serRec.Opportunity__r.Account.Name; 
+                    //AccountId = servicerec.serRec.Opportunity__r.AccountId;
+                    AccountName = servicerec.serRec.Account__r.Name;
+                    AccountId = servicerec.serRec.Account__c;
+                    CustomerContractingEntity = servicerec.serRec.Legal_Entity__c;
+                    CustomerContractingEntityName = servicerec.serRec.Legal_Entity__r.Name;
+                    CustomerContractingEntity = CustomerContractingEntity.subString(0,CustomerContractingEntity.length()-3);
+                }
+            }
+        }
+        if(servicerecordlist!= null && servicerecordlist.size()>0)
+        {
+            for(ServiceRecordWrapper servicerec : servicerecordlist) 
+            {
+                if(servicerec.checked == true || test.isRunningTest())
+                {
+                    if(checkedServicerecords!= null && checkedServicerecords.size()>0)
+                    {
+                        for(Service_Record__c servce : checkedServicerecords )
+                        { 
+                            OpportunityIdList.add(servce.Opportunity__c);
+                            CktServiceIdList.add(servce.Ckt_ServiceID__c);          
+                        }
+                    }
+                    if(CktServiceIdList!=null && CktServiceIdList.size()>0)
+                    {
+                        //separatedvalues = CktServiceIdList.Split('\n');
+                        for(String str : CktServiceIdList) 
+                        {
+                            commaSepratedList += str + ',' +'\n'; 
+                        }
+                    }
+                    try
+                    {
+                        // remove last additional comma from string
+                        commaSepratedList = commaSepratedList.subString(0,commaSepratedList.length()-2);
+                        PRCR_Oppty_Creation_Values__c stageNameOfOppty = PRCR_Oppty_Creation_Values__c.getValues('StageName'); // To get the value of Uploaded records 
+                        OpportunityStage = string.valueof(stageNameOfOppty.Name__c);
+                        PRCR_Oppty_Creation_Values__c recordTypeOfOppty = PRCR_Oppty_Creation_Values__c.getValues('RecordType'); // To get the value of Uploaded records 
+                        OpportunityRecordType = string.valueof(recordTypeOfOppty.Name__c);
+                        PRCR_Oppty_Creation_Values__c cktserviceid = PRCR_Oppty_Creation_Values__c.getValues('CktServiceId'); // To get the value of Uploaded records 
+                        circuitServiceId = string.valueof(cktserviceid.Name__c);
+                        PRCR_Oppty_Creation_Values__c prcrcktserviceid = PRCR_Oppty_Creation_Values__c.getValues('PRCRCktServiceId'); // To get the value of Uploaded records 
+                        PRCRcircuitServiceId = string.valueof(prcrcktserviceid.Name__c);
+                        PRCR_Oppty_Creation_Values__c prcrcktOpptyProbabilty = PRCR_Oppty_Creation_Values__c.getValues('OpportunityProbabilty'); // To get the value of Uploaded records 
+                        OpportunityProbabilty = string.valueof(prcrcktOpptyProbabilty .Name__c);
+                        PRCR_Oppty_Creation_Values__c prcrcktOpptyTataBillingEntity = PRCR_Oppty_Creation_Values__c.getValues('TataBillingEntity'); // To get the value of Uploaded records 
+                        OpportunityTatabillingEntity = string.valueof(prcrcktOpptyTataBillingEntity.Name__c);
+                        PRCR_Oppty_Creation_Values__c prcrcktCustomerContractingEntityFId = PRCR_Oppty_Creation_Values__c.getValues('CustomerContractingEntityFId'); // To get the value of Uploaded records 
+                        OpptyCustomerContractingEntityFId  = string.valueof(prcrcktCustomerContractingEntityFId.Name__c);
+                        
+                    }
+                    catch(Exception e)
+                    {
+                         System.Debug('Error In getting custom setting value'+e.getMessage());    
+                    }
+                    if(OpportunityId!= Null) 
+                    {
+                        if(OpportunityRecordType!= NULL)
+                        { 
+                            PageReference ReturnPage1 = new PageReference('/' + '006' + '/e?'+circuitServiceId +'=' +cktServiceid+ '&' +PRCRcircuitServiceId +'='+ commaSepratedList + '&' + 'opp4' + '=' + AccountName + '&opp4_lkid=' + AccountId  + '&opp11=' +OpportunityStage +'&CF' + OpptyCustomerContractingEntityFId + '='+ CustomerContractingEntityName + '&CF'+ OpptyCustomerContractingEntityFId +'_lkid=' + CustomerContractingEntity + '&opp12=' + OpportunityProbabilty + '&' + OpportunityTatabillingEntity + '=' + OpptyTataBillingEntity +  '&returl=%2F006%2Fo' + '&RecordType='+ OpportunityRecordType ); 
+                            ReturnPage1.setRedirect(true);
+                            return ReturnPage1;
+                        }
+                        else
+                        {
+                            isDisplay = false;
+                            isDisplayMode = false;
+                            ApexPages.Message errormsg = new ApexPages.Message(ApexPages.severity.ERROR,'Error in Fetching the Record Type of Opportunity');
+                            ApexPages.addMessage(errormsg);                        
+                        }
+                    }
+                    else 
+                    {
+                            if(OpportunityRecordType!= NULL)
+                            {
+                                PageReference ReturnPage = new PageReference('/' + '006' + '/e?'+circuitServiceId +'=' +cktServiceid+ '&' +PRCRcircuitServiceId +'='+ commaSepratedList +'&CF' + OpptyCustomerContractingEntityFId + '='+ CustomerContractingEntityName + '&CF'+ OpptyCustomerContractingEntityFId +'_lkid=' + CustomerContractingEntity + '&opp11=' +OpportunityStage + '&opp12=' + OpportunityProbabilty + '&' + 'opp4' + '=' + AccountName + '&opp4_lkid=' + AccountId +  '&' + 'returl=%2F006%2Fo' + '&RecordType='+ OpportunityRecordType + '&ent=Opportunity' ); 
+                                ReturnPage.setRedirect(true);
+                                return ReturnPage;
+                            }
+                            else
+                            {
+                                isDisplay = false;
+                                isDisplayMode = false;
+                                ApexPages.Message errormsg = new ApexPages.Message(ApexPages.severity.ERROR,'Error in Fetching the Record Type of Opportunity');
+                                ApexPages.addMessage(errormsg);                        
+                            }
+                   }
+                    
+                    
+                }
+                else  if(servicerec.checked == false)
+                {
+                    isDisplay = false;
+                    isDisplayMode = false;
+                    ApexPages.Message errormsg = new ApexPages.Message(ApexPages.severity.ERROR,'Please select a Service record for creating Opportunity');
+                    ApexPages.addMessage(errormsg);  
+                }
+            }
+        }   
+        return null;
+    }
+    // ***************************************************************************************
+    // Name       :   refershpage
+    // Description:   Method to refresh the sircuitservicerecord Page
+    // Parameters :   None
+    // Returns    :   null
+    // ***************************************************************************************
+    public Pagereference refershpage()
+    {   
+       // isDisplay = false;
+        isDisplayMode = true;
+        getmissingServicerecords();
+        getmapLEandProduct();
+        return null;
+    }
+    
+     
+    // ***************************************************************************************
+    // Name       :   getGESRecordList
+    // Description:   Method to return GES Service Record List
+    // Parameters :   None
+    // Returns    :   List<ServiceRecordWrapper>
+    // ***************************************************************************************
+    public List<ServiceRecordWrapper> getGESRecordList() 
+    {
+        GESList = new List<ServiceRecordWrapper>();
+        if(servicerecordlist != null && servicerecordlist.size()>0 ) 
+        {
+            for(ServiceRecordWrapper service : servicerecordlist)
+            {
+                if(service.serRec.Customer_Type__c != Null)
+                {
+                    if(service.serRec.Customer_Type__c == 'Enterprise-Direct' || service.serRec.Customer_Type__c == 'Next Gen'|| service.serRec.Customer_Type__c == 'Corporate' || service.serRec.Customer_Type__c == 'Enterprise – Government/PSU' || service.serRec.Customer_Type__c == 'Enterprise - System Integrators' || service.serRec.Customer_Type__c == 'Enterprise - Gold' || service.serRec.Customer_Type__c == 'Enterprise – Silver' || service.serRec.Customer_Type__c == 'Enterprise – Growth Accounts' || service.serRec.Customer_Type__c == 'SMB' || service.serRec.Customer_Type__c == 'Enterprise - MES' )
+                    {
+                        GESList.add(service);
+                        isDisplayGESButton = false;
+                    }
+                }
+            }
+            if(GESList != null && GESList.size()>0)
+            {
+                isDisplayGESButton = false; 
+                return GESList; 
+            } 
+            else 
+            {
+                return null;
+            }
+        }         
+        else
+        {
+            return null;
+        }
+    }  
+    // ***************************************************************************************
+    // Name       :   getGCSRecordList
+    // Description:   Method to return GCS Service Record List
+    // Parameters :   None
+    // Returns    :   List<ServiceRecordWrapper>
+    // ***************************************************************************************
+    public   List<ServiceRecordWrapper> getGCSRecordList() 
+    {
+        GCSList = new List<ServiceRecordWrapper>();
+        if(servicerecordlist != null && servicerecordlist.size()>0 ) 
+        { 
+            for(ServiceRecordWrapper serviceGCS : servicerecordlist)
+            {
+                if(serviceGCS.serRec.Customer_Type__c != Null)
+                {
+                    if(serviceGCS.serRec.Customer_Type__c == 'Mobile' || serviceGCS.serRec.Customer_Type__c == 'Carriers' || serviceGCS.serRec.Customer_Type__c == 'Wholesale' || serviceGCS.serRec.Customer_Type__c == 'GVS')
+                    {
+                        GCSList.add(serviceGCS);
+                        isDisplayGCSButton = false;   
+                    }
+                }
+            }             
+            if(GCSList!= null && GCSList.size()>0)
+            {
+              isDisplayGCSButton = false;  
+               return GCSList; 
+            } 
+            else
+            {
+                return null;            
+            }
+        }         
+        else
+        {
+            return null;
+        }
+    } 
+    
+    
+    // ***************************************************************************************
+    // Name       :   getAllOptions
+    // Description:   Method to return GCS Service Record List
+    // Parameters :   None
+    // Returns    :   List<ServiceRecordWrapper>
+    // ***************************************************************************************
+    public List<SelectOption> getAllOptions()
+    { 
+        options = new List<SelectOption>();
+        // adding custom settings to the select list
+        for(Userlistfortaskcreation__c setting : Userlistfortaskcreation__c.getAll().values())
+        {
+            options.add(new selectOption(setting.Id__c,setting.Name)); 
+        }     
+        return options;
+        
+    }
+    
+    // ********************************************************************************************************************
+    // Name       :   Createtask
+    // Description:   Method to create PRCR Task & assign the task to the assignee selected by 
+    //                the user for creating service records for missing ckt service Id & add attachment in it
+    // Parameters :   None
+    // Returns    :   Pagereference
+    // ********************************************************************************************************************
+    public Pagereference Createtask()
+    { 
+        try
+        {
+            PRCR_Oppty_Creation_Values__c taskrecordtype1 = PRCR_Oppty_Creation_Values__c.getValues('TaskRecordType'); // To get the value of Uploaded records 
+            taskRecordType = string.valueof(taskrecordtype1.Name__c);
+           /* PRCR_Oppty_Creation_Values__c taskPriority1 = PRCR_Oppty_Creation_Values__c.getValues('TaskPriority'); // To get the value of Uploaded records 
+            taskPriority = string.valueof(taskPriority1.Name__c); */
+            PRCR_Oppty_Creation_Values__c taskStatus1 = PRCR_Oppty_Creation_Values__c.getValues('TaskStatus'); // To get the value of Uploaded records 
+            taskStatus = string.valueof(taskStatus1.Name__c);   
+            PRCR_Oppty_Creation_Values__c taskSubject1 = PRCR_Oppty_Creation_Values__c.getValues('TaskSubject'); // To get the value of Uploaded records 
+            taskSubject = string.valueof(taskSubject1.Name__c);
+        }
+        catch(Exception e)
+        {
+             System.Debug('Error In getting custom setting value'+e.getMessage());    
+        }
+        createTask = new Task();
+        createTask.RecordTypeId = taskRecordType;
+        createTask.Status = taskStatus;
+        createTask.OwnerId = selectValue; 
+        createTask.Priority = TaskPriority;
+        createTask.Subject = taskSubject ;
+        
+        if(createTask.Status != null)
+        {
+            insert createTask;
+            Result = createTask.id;
+        }
+        //if (Test.IsRunningTest())
+        //{
+        pdf = Page.CircuitServiceRecordDownload;
+        pdf.setRedirect(true);
+        pdf.getParameters().put('Id','missingSR');
+        if (!Test.isRunningTest()) 
+       { xlsBlob = pdf.getContent();}
+        
+        
+        Attachment attachMissingCktServiceList  = new Attachment();
+        attachMissingCktServiceList.Body = xlsBlob;
+        attachMissingCktServiceList.OwnerId = selectValue;
+        attachMissingCktServiceList.ParentID = Result;
+        attachMissingCktServiceList.Name = 'MissingCktServiceIds.xls';
+        attachMissingCktServiceList.Description = 'Missing Ckt Service Ids';
+        insert attachMissingCktServiceList;
+        isMessageDisplay = true;
+        result1 =attachMissingCktServiceList.id;
+        return null;
+    }
+    public List<SelectOption> getTaskPriorityList() 
+    {
+        List<SelectOption> options = new List<SelectOption>();        
+        Schema.DescribeFieldResult fieldResult = Task.Priority.getDescribe();
+        List<Schema.PicklistEntry> ple = fieldResult.getPicklistValues();   
+        options.add(new SelectOption('','--None--'))  ;                    
+        for( Schema.PicklistEntry e : ple )
+        {
+          options.add(new SelectOption(e.getLabel(), e.getValue()));
+        }       
+        return options;
+    } 
+ }
