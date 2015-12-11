@@ -1,8 +1,8 @@
 public with sharing class BulkUploadCircuitInventorycontroller
 {
 
-    public String selectvalue { get; set;}
-    public Integer indexCounter = -1;
+   // public String selectvalue { get; set;}
+    //public Integer indexCounter = -1;
     public Integer errorCount= 0;
     public Integer successCount= 0;
     Public String OpportunityId ;
