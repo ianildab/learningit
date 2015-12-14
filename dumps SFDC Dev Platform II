@@ -1,0 +1,179 @@
+1. What is efficeint way of using compund address field
+	- Using it in SOQL filter
+
+2. How to get permissionset record related to a user?
+	- List< PermissionSetAssignment> l  = [select id from  permissionsetassignment where assigneeid = userinfo.getuserId()];
+
+3. When a formula field is considered non-deterministic on any object  whild permorning SOQL.
+	- Formula with Today()
+	- Formula containing parent’s text field.
+
+4. If corporate currency is set as USD and user currency is AUD then which of the following queries are efficiently retrieves data user’s currency.
+	- Select id, name convertcorrency (currency__c)  from test__c where convercurrency(currency__c ) >500
+
+5. When a page is deployed to production which is showing thousands of account and their thousands of contacts in a hierarchical structure. Page is getting failed to load. What should a user do to avoid it?
+	- User some hierarchical structure in a managin order. (I have selected this option bcoz VF performance slows down when we nest vf components deeply. It affect heap size of page)
+	- Use lazy loading option
+
+6. A force.com site user is complaining that his page is taking time to load. What should a developer  do to avoid such kind of situations.
+	- User satic resource for javascript and other css.
+ 	- Use transient keword in controller.
+
+7. A page is created with standardcontroller as Account and extentions = “AccountExtention” recordsetvars = “accounts”. What should be the structure of constructor.
+	- public AccountExtention(Standardsetcontroller controller)
+
+8. result = [select id max(number) from account ]. What should be the type of result
+	- List<AggregateResult> result;
+
+9. One question was regarding <apex:axis> and <axex:barseries> tags and then options were as given below. what will be the vertical axis value
+	- Opportunity Closed 
+
+10. Third party wants to retrieve 10 account from custom webservice. Which are the ways by which third party application can retrive records from SFDCs.
+
+a. global class myWebservice{
+		Static list<account> getData(){
+		return list<account> l = [select id, name from account limit 10];
+		}
+	} 
+b. global class myWebservice{
+		Static list<string> getData(){
+		list<string> acclist = new list<string>();
+		for(account acc :  [select id, name from account limit 10]){
+			Acclist.add(acc.Name)
+		}
+		return acclist;
+	}
+} 
+
+c. global class myWebservice{
+		Static  map<id,account> getData(){
+		return list<account> l = [select id, name from account limit 10];
+	}
+} 
+
+Ans. A and B
+
+11. Mycustom__c has a lookup Manager__c to another user. What should be done to share this object record with it’s manager everytime this lookup value is changed.
+	- Custom apex maged sharing using Mycustom_share object and share it with manger.
+
+12. There are 500 existing account records in salesforce and a developer has wriiten a test cass with @isTest(seeALlData =true) annotation.
+
+	@isTest(seeAllData=true)
+	Public class mytestclass{
+
+	}
+	Which of the following method runs successfully when it added to above test class?
+	a. @istest(seealldata = true)
+		Static  test unittest(){
+			Account acc = [select id from account];
+		}
+	b. @istest(seeAllData = false)
+		Static  test unittest(){
+			Account  a = [select id from account limit 1];
+		}
+	c. @istest(seeAllData = false)
+		Static  test unittest(){
+			Account a = [select id from account limit 1][0];
+		}
+	d. @isTest
+		Static  test unittest(){
+			Account a = [select id from account ];
+		}
+
+	Ans: b
+
+13. If any thir party application is accessing SOAP service of SFDC then which are the considerations true.
+	- Code runs in system context.
+	- All the sharing setting are considered if with sharing is used in class.
+
+14. Opportunity should be rollup on account when closedate is > 30 days from created date.
+How this can be done.
+	a. Trigger on account and rollup amount
+	b. Trigger on opportunity and rollup amount
+	c. Create some rollup summary field and filter 
+	d. Create a filter on close date while creating a rollup field.
+
+	None of the above is correct option. I have selected an option which has wording "filter on workflow UPDATED field"
+
+15. Which is the best way to update a contact and related account.
+	Contact con = [select firstname, lastname, account.Industry from contact limit 1];
+	Con.firstname = ‘Abdul’;
+	Con.lastname = ‘Kalam’;
+	Con.Account = ‘Telecom’;
+	Update con;
+	Update con.Account;
+
+16. What parameters @InvocableMethod() accepts while calling it from process builder.
+	- List<TypedSobject>
+	- List<User-Defined-Type> 
+
+
+17. If a developer wants to use same data for all the test method what approach he should go with.
+	- Disable Parallel Apex Testing
+
+
+18. Each lead and contact is associated to one or many campaigns. Each month campaign lead or contact should get newsletter but should not get duplicate newsletter. How this can be achieved. There are tens of thousands email to be sent in a day.
+	- Using Fuel product.
+
+19. Which tags are associated with javascript.
+	- <apex:actionfunction>
+	- <apex:actionPoller>
+
+20. If a trigger is running and when transaction is over it is almost close to governor limits. Where we can see all the limitations in developer console.
+	- Limits tab under execution panel
+
+
+21. If a community is doing login() call to salesforce what details he needs to provide
+	- Username & passward
+	- Security token
+
+22. If a named crendential is created as ‘Org_Name’ then then how it is bind
+	- req.setEndpoint('callout:Org_Name/sampleCallout');
+
+23. A Http callout is made to another party and no settimeout(120000) is mentioned in code. This callout is running for the last one minute then what would happen to request.
+	- Error will occur because default timout is 10 seconds
+
+24. What interfeces provides test data for webservice callouts.
+	- Httpcalloutmock
+	- Webservicemock
+25. In lightning process where can we put reusable javascript code.
+	- Helper Resource
+
+26. A sales rep is filling a form on behalf of the customer. What can be done from list custom setting to set some rules on visualforce page
+	- Add tax rate according to country code
+
+
+27. If as user wants to search lead or contact where email is @testsalesforce.com. how this can be done
+	Find (*@testsalesforce.com) in email returning Lead(Id,name), contact(id,name);
+
+28. A case can have status (open, new ,customer in review, good customer), what query will perform well on large data set?
+	Select id,status where status = ‘Open’
+	Select id,status where status IN ('New', ‘Open’)
+
+29. How can currency can be changed in salesforce 
+	Using standard apex dml
+
+30 When opplineitem is updated amount should be roll up on opporunity and then a field on account to be updated to ‘Active’. How this can be done?
+	- Workflow on opportuity
+
+
+31. When opplineitem's Total amount field is greater than 10000USD then opporunity level should be updated to 'Level 2' and then a field on account to be updated to ‘High Level’. How this can be done?
+	- Trigger on opportunity line item and workflow on Opportunity.
+
+32. How many DML statements are used in the given code.
+	Savepoint sp = Database.setSavepoint();
+	Insert lead;
+	Convert lead complete process.
+ 	Apex approval process.
+	Database.rollback( sp );
+Ans. 5
+
+34. Apex transaction execution taking more time. How developer can find which components are taking maximum resources?
+	- Execution Stack
+	- Timeline Tab under Execution Overview Panel
+
+35. What does continuation object’s significance
+	- It keeps running any transaction for longer than 5 seconds
+
+
+
