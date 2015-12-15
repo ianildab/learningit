@@ -1,0 +1,615 @@
+public with sharing class BulkUploadCircuitInventorycontroller
+{
+
+   // public String selectvalue { get; set;}
+    //public Integer indexCounter = -1;
+    public Integer errorCount= 0;
+    public Integer successCount= 0;
+    Public String OpportunityId ;
+    public String OpportunityType;
+    public SObject objct; // An instance to assign the data into fields of SObjects
+    public Boolean errorInData = False; // Flag used to check if Data entered is Of Correct Type.
+    public String UpdatedObject{get;set;} // to capture updated object
+    public boolean renderUploadedRecordSection{get;set;} // Flag used in VF Page to control rendering of Upload file button
+    public boolean renderUpdatedRecordSection{get;set;} // Flag used in VF Page to control rendering of updated record section
+    public boolean displayContractRenewalTemplate{get;set;}
+    public boolean displayPriceRevisionTemplate{get;set;} 
+    public boolean isDisplayPriceRevisionobjList{get;set;}
+    public boolean isDisplayContractobjList{get;set;}
+    public boolean displayContractRenewalSuccessTable{get;set;}
+    public boolean displayPriceRevisionSuccessTable{get;set;}
+    public boolean displayContractRenewalFailedTable{get;set;}
+    public boolean displayPriceRevisionFailedTable{get;set;}
+    public boolean renderFailedRecordSection{get;set;} // Flag used in VF Page to control rendering of updated record section
+    public boolean enableUploadFileButton{get;set;} // Flag used in VF Page to control rendering of uploaded file button
+    public Boolean isDisplayBrowseButton{set;get;}//Flag used in VF Page to control rendering of Browse/choose file button
+    public Boolean headerOk = True; // Flag to check if the header of the template is in right format
+    public Integer oneTimeCounter = 0; // To make sure that a special piece of code is run only once and also to capture the starting index of fields of different objects 
+    //public list<SelectOption> options {get; set;}
+
+    transient public Blob contentFile{get;set;} // To Capture body of the file
+    transient public string nameFile{get;set;} // To Capture uploaded file
+    
+    transient public String[] filelines = new String[]{}; // To Capture the no. of lines in the file
+    transient public String[] separatedvalues = new String[]{}; 
+    transient public Map<String, List<Schema.DescribeFieldResult>> objectsWithDescription;
+   
+    public String fileExtention = '.csv'; // To check the correct file extention
+    
+    public List<SObject> objectList{get;set;} // To create a list of data to be inserted/updated.
+    public List<CircuitInventoryWrapperListError> UpdateErrorList {get;set;} // to wrap the error list
+    public List<String> errorInFieldValue = new List<String>(); // To capture fieldNames with error in data
+    public List<Circuit_Inventory__c> UpdateSuccessList{get;set;} // list to capture the updated success list
+    public List<String> inputvaluesHeader = new List<String>(); // To capture data in each row of the excel
+    public List<String> headerList = new List<String>(); // To capture headers from the template
+    public List<String> incorrectTemplateHeaders = new List<String>(); // to capture incorrect template header
+    public Map<String,String> fieldWithDataTypeMap = new Map<String,String>(); // To capture DataType of fields
+    public Map<String, List<String>> objectFieldMap = new Map<String, List<String>>(); // To capture the different objects along with their respective fields from the template
+    public Map<String, Integer> objectStartColumnIndex = new Map<String, Integer>(); // To capture different objects alongwith their starting index
+    public List<String> inputvalues = new List<String>(); // To capture data in each row of the excel
+    
+    List<String> errorMsgList;  // to capture error message list
+    List<Sobject> toUpdatecircuitInventoryList = new List<Sobject>(); // to capture list of records to update
+    List<Circuit_Inventory__c> updateListCircuitInventory; // to capture the final list for updating the records
+    List<Circuit_Inventory__c> uploadDataList{get;set;} // list to capture the uploaded data
+    List<Circuit_Inventory__c> UpdateFailedList;  // list to capture failed records
+    List<String> apiNameOfTemplateFields = new List<String>(); //to capture API of field
+    List<String> typeofOpportunity = new List<String>(); //to capture API of field
+    Map<String,BulkUploadCktInventoryTemplateMapping__c> mapTemplateMappingRecords; // to map headers of template
+    Map<String,String> mapTemplateHeaderAndInternalMapping; // to map template headers & file headers
+   
+   
+    /******************Constructors****************************/
+    public BulkUploadCircuitInventorycontroller() {
+    
+        isDisplayBrowseButton = false;
+        enableUploadFileButton = false;
+        renderUploadedRecordSection = false;
+       
+        OpportunityType = ApexPages.currentPage().getParameters().get('oppType'); 
+        system.debug('-----OpportunityType ----------'+OpportunityType );
+        OpportunityId = ApexPages.currentPage().getParameters().get('oppId'); 
+        if(OpportunityType == 'Renewal without Price Revision')
+        {
+            displayContractRenewalTemplate = true;
+            displayPriceRevisionTemplate = false;
+            isDisplayContractobjList = true;
+            isDisplayPriceRevisionobjList = false;
+        }
+        else if(OpportunityType == 'Renewal with Price Revision' || OpportunityType == 'Price Revision')
+        {
+            displayPriceRevisionTemplate = true;
+            displayContractRenewalTemplate = false;
+            isDisplayPriceRevisionobjList = true;
+            isDisplayContractobjList = false;
+        }
+    }
+
+    // ******************************************************************************
+    // Name       :   ReadFile
+    // Description:   Method to process the CSV file 
+    // Parameters :   None
+    // Returns    :   Pagereference
+    // ******************************************************************************
+
+    public PageReference ReadFile() 
+    {
+        enableUploadFileButton = true;
+        isDisplayBrowseButton = true;
+        renderUpdatedRecordSection = false;
+        renderFailedRecordSection = false;
+        renderUploadedRecordSection = true;
+        system.debug('---------isDisplayPriceRevisionobjList ----------'+isDisplayPriceRevisionobjList );
+        system.debug('---------isDisplayContractobjList ----------'+isDisplayContractobjList );
+        
+        if(nameFile != null)
+        {
+            if(nameFile.subString(nameFile.length() - 4, nameFile.length()).equals(fileExtention))
+            {
+                nameFile=contentFile.toString();
+                try
+                {
+                    filelines = nameFile.split('\n');
+                }
+                catch(Exception e)
+                {
+                    System.Debug('Error In Splitting '+e.getMessage());
+                }     
+                if(filelines != null)
+                {
+                    System.Debug('This is the number of lines ----- '+filelines.size());                   
+                    inputvaluesHeader = filelines[0].split(',');                   
+                    system.debug('----------------InputValuesHeader----------------'+inputvaluesHeader);
+                    system.debug('----------------InputValuesHeader size----------------'+inputvaluesHeader.size());
+                    System.Debug('inputvalues '+inputvalues);
+                    mapTemplateMappingRecords = new Map<String,BulkUploadCktInventoryTemplateMapping__c>();
+                    mapTemplateHeaderAndInternalMapping = new Map<String,String>();
+                    mapTemplateMappingRecords = BulkUploadCktInventoryTemplateMapping__c.getAll();// map to hold the custom setting data.
+                    system.debug('------mapTemplateMappingRecords------'+mapTemplateMappingRecords);
+                    system.debug('------mapTemplateMappingRecords.keySet()------'+mapTemplateMappingRecords.keySet());
+                    for(String CustomRec : mapTemplateMappingRecords.keySet())
+                    {
+                        BulkUploadCktInventoryTemplateMapping__c customSettingRec =  mapTemplateMappingRecords.get(CustomRec);
+                        system.debug('---customSettingRec----'+customSettingRec);
+                        system.debug('-----mapTemplateHeaderAndInternalMapping-----'+mapTemplateHeaderAndInternalMapping);
+                        if(!mapTemplateHeaderAndInternalMapping.containskey(customSettingRec.Template_Header__c))
+                        {
+                            system.debug('----customSettingRec.Type_Of_Opportunity__c-----' +customSettingRec.Type_Of_Opportunity__c);
+                            if(OpportunityType  == 'Renewal with Price Revision' || OpportunityType  == 'Price Revision')
+                            {
+                                if(customSettingRec.Type_Of_Opportunity__c == 'Renewal with Price Revision, Price Revision')
+                                {
+                                    system.debug('-------test--------');
+                                    mapTemplateHeaderAndInternalMapping.put(customSettingRec.Template_Header__c.trim(),customSettingRec.Corresponding_Template_Header__c.trim());
+                                }
+                            }
+                            else if(OpportunityType == 'Renewal without Price Revision')
+                            {
+                                if(customSettingRec.Type_Of_Opportunity__c == 'Renewal without Price Revision') 
+                                {
+                                    system.debug('-------test 1--------');                              
+                                    mapTemplateHeaderAndInternalMapping.put(customSettingRec.Template_Header__c.trim(),customSettingRec.Corresponding_Template_Header__c.trim());
+                               } 
+                            }
+                            apiNameOfTemplateFields.add(customSettingRec.Field_API_Name__c);
+                            
+                            typeofOpportunity.add(customSettingRec.Type_Of_Opportunity__c);
+                        }
+                    }
+                    system.debug('--------------------mapTemplateHeaderAndInternalMapping--------------------'+mapTemplateHeaderAndInternalMapping.size());
+                    system.debug('--------------------mapTemplateHeaderAndInternalMapping--------------------'+mapTemplateHeaderAndInternalMapping);
+                     system.debug('----------------apiNameOfTemplateFields------------------'+apiNameOfTemplateFields);
+                    system.debug('----------------InputValue of Header------------------'+inputvaluesHeader);
+                    for(String s : inputvaluesHeader)
+                    {
+                        system.debug('--------------------mapTemplateHeaderAndInternalMapping 1--------------------'+mapTemplateHeaderAndInternalMapping);
+                        system.debug('Header Value--------------------->'+s);
+                        if(mapTemplateHeaderAndInternalMapping.containsKey(s.trim()))
+                        {
+                            system.debug('----------------InputValue of Header------------------'+s);
+                            system.debug('----------------inputvalues------------------'+inputvalues);
+                            system.debug('---------------mapTemplateHeaderAndInternalMapping.get(s)------------------'+mapTemplateHeaderAndInternalMapping.get(s.trim()));
+                            inputvalues.add(mapTemplateHeaderAndInternalMapping.get(s.trim()));
+                        }
+                        else
+                        {
+                            system.debug('---------------------s----'+s);
+                            incorrectTemplateHeaders.add(s);
+                        }
+                        system.debug('----------------------------------Value Of----'+s);
+                        system.debug('------------------incorrectTemplateHeaders--------------------'+incorrectTemplateHeaders);
+                        system.debug('---------------inputvalues 23------------------'+inputvalues);
+                    }
+                  
+                    if(incorrectTemplateHeaders.Size()== 0)
+                    {
+                        objectsWithDescription = new Map<String, List<Schema.DescribeFieldResult>>();
+                        if( oneTimeCounter == 0)
+                        {
+                            for(Integer countFor = 0 ; countFor < inputvalues.size() ; countFor++)
+                            {
+                                headerList = inputvalues[countFor].split('\\.');
+                                System.Debug('headerList--- '+headerList);
+                                if(headerList.size() == 3)
+                                {
+                                    if(Schema.getGlobalDescribe().get(headerList[1].trim()) != null)
+                                    {
+                                        try
+                                        {
+                                            Schema.DescribeFieldResult dfr = Schema.getGlobalDescribe().get(headerList[1].trim()).getDescribe().fields.getMap().get(headerList[2].trim()).getDescribe();
+                                            if(countFor == 0)
+                                                objectsWithDescription.put(headerList[1].trim(), new List<Schema.DescribeFieldResult>{dfr});    
+                                            else if(!(objectsWithDescription.containsKey(headerList[1].trim())))
+                                                    objectsWithDescription.put(headerList[1].trim(), new List<Schema.DescribeFieldResult>{dfr});
+                                                else
+                                                    objectsWithDescription.get(headerList[1].trim()).add(dfr);
+                                                System.Debug('The Map Is : '+objectsWithDescription);
+                                    
+                                            fieldWithDataTypeMap.put(headerList[2].trim(),String.valueOf(dfr.getType()));
+                                                                              
+                                            if(countFor == 0)
+                                            {
+                                                objectFieldMap.put(headerList[1], new List<String>{headerList[2]});
+                                                objectStartColumnIndex.put(headerList[1], oneTimeCounter++);
+                                              
+                                            }
+                                            else if(!(objectFieldMap.containsKey(headerList[1])))
+                                            {
+                                                objectFieldMap.put(headerList[1], new List<String>{headerList[2]});
+                                                objectStartColumnIndex.put(headerList[1], oneTimeCounter++);
+                                             
+                                            }
+                                            else
+                                            {
+                                                objectFieldMap.get(headerList[1]).add(headerList[2]);
+                                                oneTimeCounter++;
+                                            }
+                                            System.Debug('objectFieldMap--- ' + objectFieldMap);
+                                            headerList.clear();
+                                        }
+                                        Catch(exception e)
+                                        {
+                                            headerOk = False;
+                                            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Fatal,'No such field \''+headerList[2]+'\' found in the system for Object \''+headerList[1]+'\''));
+                                            break;    
+                                        }
+                                    }
+                                    else
+                                    {
+                                        headerOk = False;
+                                        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Fatal,'No Such Object \''+headerList[1]+'\' found in the System. Please check the Header of the Template.'));
+                                        break;
+                                    }
+                                }
+                                else
+                                {
+                                    headerOk = False;
+                                    ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Error,'Please select the right template format to upload records.'));
+                                    break;
+                                }
+                            }
+                            if(objectFieldMap.size() > 1)
+                            {
+                                UpdatedObject = 'Circuit_Inventory__c';
+                            }
+                        }
+                        if(headerOk == True)
+                        {
+                            inputvalues.clear();
+                            objectList = new List<SObject>();
+                            uploadDataList = new List<Circuit_Inventory__c>();
+                            system.debug('------objectFieldMap.keySet()--------'+objectFieldMap.keySet());
+                            for(String SObjectName : objectFieldMap.keySet())
+                            {
+                                system.debug('-----SObjectName ------------'+SObjectName );
+                                Schema.SObjectType theNewObject = Schema.getGlobalDescribe().get(SObjectName);
+                                List<String> fieldList = objectFieldMap.get(SObjectName);
+                                for (Integer countFor=1 ; countFor < filelines.size() ; countFor++)
+                                {
+                                    inputvalues = filelines[countFor].split(',');
+                                    System.Debug('inputvalues.size() '+inputvalues.size());
+                                    objct = theNewObject.newSObject();
+                                    Integer count = 0;
+                                    for(integer countForIndex = 0;countForIndex<inputvalues.size();countForIndex++)
+                                    {
+                                        String dataType = fieldWithDataTypeMap.get(fieldList[count].trim());
+                                        System.Debug('Field Name Is '+fieldList[count].trim()+' And DATATYPE IS---- '+dataType);
+                                        if(dataType != null)
+                                        {
+                                            if((dataType.equals('INTEGER')) || dataType.equals('CURRENCY') || dataType.equals('PERCENT'))
+                                            {   
+                                                if(!(inputvalues[countForIndex].trim().equals('')))
+                                                {
+                                                    try
+                                                    {       
+                                                        objct.put(fieldList[count++].trim(), Integer.valueOf(inputvalues[countForIndex].trim()));
+                                                    }
+                                                    catch(Exception e)
+                                                    {
+                                                        if(!(e.getTypeName().equals('SObjectException')))
+                                                        {
+                                                            errorInData = True;
+                                                            errorInFieldValue.add(fieldList[count - 1].trim());
+                                                           
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            else if((dataType.equals('BOOLEAN')))
+                                            {
+                                                try
+                                                {
+                                                    
+                                                    objct.put(fieldList[count++].trim(), Boolean.valueOf(inputvalues[countForIndex].trim()));
+                                                }
+                                                catch(Exception e)
+                                                {
+                                                    if(!(e.getTypeName().equals('SObjectException')))
+                                                    {
+                                                        errorInData = True;
+                                                        errorInFieldValue.add(fieldList[count - 1].trim()); 
+                                                    }
+                                                }
+                                            }
+                                            else if((dataType.equals('ID')))
+                                            {
+                                                if(!(inputvalues[countForIndex].trim().equals('')))
+                                                {
+                                                    try
+                                                    {
+                                                        objct.put(fieldList[count++].trim(), Id.valueOf(inputvalues[countForIndex].trim()));
+                                                    }
+                                                    catch(Exception e)
+                                                    {
+                                                        renderUploadedRecordSection = false;
+                                                        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Error,'Invalid Id: '+inputvalues[countForIndex]));                                                       
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    objct.put(fieldList[count++].trim(), null);
+                                                }
+                                            }
+                                            else if((dataType.equals('DATE')))
+                                            {
+                                                If(!(inputvalues[countForIndex].trim().equals('')))
+                                                {
+                                                    try
+                                                    {       
+                                                        objct.put(fieldList[count++].trim(), Date.valueOf(inputvalues[countForIndex].trim()));
+                                                    }
+                                                    catch(Exception e)
+                                                    {
+                                                        if(!(e.getTypeName().equals('SObjectException')))
+                                                        {
+                                                            errorInData = True;
+                                                            errorInFieldValue.add(fieldList[count - 1].trim());
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            else if((dataType.equals('DATETIME')))
+                                            {
+                                                If(!(inputvalues[countForIndex].trim().equals('')))
+                                                {
+                                                    try
+                                                    {   
+                                                        objct.put(fieldList[count++].trim(), DateTime.valueOf(inputvalues[countForIndex].trim()));
+                                                    }
+                                                    catch(Exception e)
+                                                    {
+                                                        if(!(e.getTypeName().equals('SObjectException')))
+                                                        {
+                                                            errorInData = True;
+                                                            errorInFieldValue.add(fieldList[count - 1].trim());
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            else if((dataType.equals('DOUBLE')))
+                                            {
+                                                If(!(inputvalues[countForIndex].trim().equals('')))
+                                                {
+                                                    try
+                                                    {
+                                                        
+                                                        objct.put(fieldList[count++].trim(), Double.valueOf(inputvalues[countForIndex].trim()));
+                                                    }
+                                                    catch(Exception e)
+                                                    {
+                                                        if(!(e.getTypeName().equals('SObjectException')))
+                                                        {
+                                                            errorInData = True;
+                                                            errorInFieldValue.add(fieldList[count - 1].trim());
+                                                            
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            else
+                                            {
+                                                try
+                                                {
+                                                    objct.put(fieldList[count++].trim(), inputvalues[countForIndex].trim());  
+                                                }
+                                                catch(exception e)
+                                                {
+                                                    
+                                                }
+                                            }
+                                            if(inputvalues[countForIndex].trim() == '' && (dataType == 'DATE' || dataType == 'DATETIME' || dataType == 'DOUBLE' || dataType == 'INTEGER' || dataType == 'CURRENCY' ||dataType == 'PERCENT'))
+                                            {
+                                                count++;
+                                            }
+                                        }
+                                        system.debug('--------------------Sobject--------------'+objct);
+                                    }
+                                    objectList.add(objct);                                   
+                                    system.debug('--------------------Sobject list--------------'+objectList);
+                                    system.debug('--------------------Sobject list size--------------'+objectList.size());
+                                    System.Debug('Object Created Is '+objectList); 
+                                }
+                            }
+                        }
+                    } 
+                    else
+                    {
+                        String headerValues = '';
+                        for(String incorrectHeader : incorrectTemplateHeaders)
+                        {
+                            headerValues = headerValues+','+incorrectHeader;
+                        }
+                        headerValues = headerValues.substring(1,headerValues.length());
+                        renderUploadedRecordSection = false;
+                        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Error,'Invalid Template Headers :'+headerValues + '. Please use Standard Template Only'));
+                    } 
+                }   
+            }
+            else
+            {
+                ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Error,'Please Upload Only CSV Files.'));
+            }   
+        }
+        else
+        {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Error,'Please Select A File To Upload'));            
+        }
+        return null;
+    }
+    
+    // ***************************************************************************************************
+    // Name       :   UpdateCircuitInventory
+    // Description:   Method to update the uploaded list
+    // Parameters :   None
+    // Returns    :   null
+    // ***************************************************************************************************
+    
+    public Pagereference UpdateCircuitInventory()
+    {
+        renderUploadedRecordSection = false;
+        System.debug('---------updateListCircuitInventory-----------:'+(List<Circuit_Inventory__c>)objectList);
+        if((List<Circuit_Inventory__c>)objectList != null && ((List<Circuit_Inventory__c>)objectList).size()>0)
+        {
+            System.debug('---------gayaaaa-----------:');
+            updateListCircuitInventory = new List<Circuit_Inventory__c>();
+            updateListCircuitInventory.addALL((List<Circuit_Inventory__c>)objectList);
+        }
+        System.debug('---------updateListCircuitInventory-----------:'+updateListCircuitInventory);
+          
+        if(updateListCircuitInventory != null && updateListCircuitInventory.size()>0)
+        {
+           indexCounter = -1;
+           errorCount = 0;
+           successCount = 0;
+           UpdateSuccessList = new List<Circuit_Inventory__c>();
+           UpdateFailedList = new List<Circuit_Inventory__c>();
+           errorMsgList = new List<String>();
+           try
+            {
+               system.debug('------------------------Try Block-------------------------');
+               List<Database.SaveResult> srList = new List<Database.SaveResult>();
+               System.debug('Errror Record **** '+updateListCircuitInventory );
+               srList = Database.Update(updateListCircuitInventory, false);
+               System.debug('---------srList -----------:'+srList );
+               for(Database.SaveResult sr: srList)
+               {
+                   if(sr.isSuccess())
+                    {   
+                        successCount+=1; 
+                        indexCounter += 1;
+                        system.debug('---------Inserted Record Id---------'+sr.getId());
+                        UpdateSuccessList.add(updateListCircuitInventory[indexCounter]);
+                        System.debug('---------UpdateSuccessList-----------:'+UpdateSuccessList);
+                    }
+                    else
+                    {
+                        errorCount+=1;
+                        indexCounter += 1;
+                        UpdateFailedList.add(updateListCircuitInventory[indexCounter]);
+                        System.debug('---------UpdateFailedList-----------:'+UpdateFailedList);
+                        for(Database.Error err : sr.getErrors()) 
+                        {
+                            
+                            errorMsgList.add(err.getMessage());
+                            System.debug('---------Error Message------------:'+ err.getMessage());
+                            System.debug('fields that affected this error: ' + err.getFields());
+                        }
+                    }
+                }
+                    System.debug('------------------UpdateSuccessList-----------'+UpdateSuccessList.size());
+                    System.debug('------------------UpdateFailedList-----------'+UpdateFailedList.size());
+                 
+                    BindErrorMsg(UpdateFailedList,errorMsgList);
+                    if(UpdateSuccessList!= null && UpdateSuccessList.size()>0)
+                    {
+                        renderUpdatedRecordSection = True;
+                        if(OpportunityType == 'Renewal without Price Revision')
+                        {
+                            displayContractRenewalSuccessTable = true;
+                            displayPriceRevisionSuccessTable = false;
+                        }
+                        else
+                        {
+                            displayContractRenewalSuccessTable = false;
+                            displayPriceRevisionSuccessTable = true;
+                        }
+                    }
+                    if(UpdateFailedList!= null && UpdateFailedList.size()>0)
+                    {
+                        renderFailedRecordSection = true;
+                         if(OpportunityType == 'Renewal without Price Revision')
+                        {
+                            displayContractRenewalFailedTable = true;
+                            displayPriceRevisionFailedTable = false;
+                        }
+                        else
+                        {
+                            displayContractRenewalFailedTable = false;
+                            displayPriceRevisionFailedTable = true;
+                        }
+                    }
+               
+            }
+            catch(exception e)
+            {
+                ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Fatal,'Some Technical exception occurred, please contact your administrator.'+e.getMessage()));
+            } 
+        }
+         return null;   
+
+    }
+    
+    // ***************************************************************************************************
+    // Name       :   BindErrorMsg
+    // Description:   Method to bind error message
+    // Parameters :   None
+    // Returns    :   void 
+    // ***************************************************************************************************
+    public void BindErrorMsg(List<Circuit_Inventory__c> UpdateFailedList, List<String> errorMsgList)
+    {
+        UpdateErrorList = new List<CircuitInventoryWrapperListError>();
+        for(Integer i = 0 ; i < UpdateFailedList.size() ; i++)
+        {
+            UpdateErrorList.add(new CircuitInventoryWrapperListError(errorMsgList[i],UpdateFailedList[i]));
+        }
+    }
+    
+    // ***************************************************************************************************
+    // Name       :   Reset
+    // Description:   Method to reset
+    // Parameters :   None
+    // Returns    :   pageReference
+    // ***************************************************************************************************
+    public PageReference Reset()
+    {
+        PageReference pageRef = new PageReference('/apex/BulkUploadCircuitInventory?OppId=' +OpportunityId + '&OppType=' +OpportunityType);
+        pageRef.setRedirect(true);     
+        return pageRef;               
+    }
+    
+    // ***************************************************************************************************
+    // Name       :   ServiceRecordWrapper.cls
+    // Description:   Wrapper class that contains binding variables to bind failed Service Record data.
+    // ***************************************************************************************************
+    
+    public class CircuitInventoryWrapperListError
+    {
+        public String error{get;set;}
+        public Circuit_Inventory__c cirInventory{get; set;}
+    
+        CircuitInventoryWrapperListError(String error, Circuit_Inventory__c obj)
+        {
+            this.error  = error;
+            this.cirInventory = obj;
+        }
+    }
+    
+    // ***************************************************************************************************
+    // Name       :   SuccessFile
+    // Description:   Method to download success file
+    // Parameters :   None
+    // Returns    :   pageReference
+    // ***************************************************************************************************
+    public PageReference SuccessFile()
+    {
+        return(new pageReference('/apex/BulkUploadCktInventorySuccessFilePage'));
+       
+    }
+    
+    // ***************************************************************************************************
+    // Name       :   ErrorFile
+    // Description:   Method to download error file
+    // Parameters :   None
+    // Returns    :   pageReference
+    // ***************************************************************************************************
+    
+    public PageReference ErrorFile()
+    {
+        system.debug('-------Error-----------');
+        system.debug('-------displayContractRenewalSuccessTable-----------'+displayContractRenewalSuccessTable);
+        system.debug('-------displayPriceRevisionFailedTable-----------'+displayPriceRevisionFailedTable);
+        return(new pageReference('/apex/BulkUploadCktInventoryErrorFilePage'));
+       
+    }
+   
+}
